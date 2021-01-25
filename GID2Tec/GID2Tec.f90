@@ -8,7 +8,7 @@
 
     narg = iargc()
     if (narg >0) then
-        call GETARG(0,arg)
+        call GETARG(1,arg)
         fpath = arg
     else
         inpunit = 10
@@ -64,6 +64,7 @@
         case('group')
             print *,"This Result is in Group"
             isMeshGroup = .true.
+            isOldFormat = .False.
         case('end')
             print *,"End Group"
             goto 100
@@ -319,7 +320,7 @@
                     allocate(PRes.PVal)
                     allocate(PRes.PVal.dat(PRes.nval))
                     read(orgline,*)PRes.PVal.index,PRes.PVal.dat
-                    if(ncoor/=PRes.PVal.index)stop 'Res Error!'
+                    if(icoor/=PRes.PVal.index)stop 'Res Error!'
                     PRes.PVal.next=>Null()
                     if(associated(PRes.ValLast))then
                         PRes.ValLast.next=>PRes.PVal
@@ -339,71 +340,72 @@
                 PRes.PVal=>PRes.PVal.next
             enddo
             case default ! for Old Format
-            nres=nres+1
-            Allocate(PRes)
-            PRes.index=nres
-            PRes.next=>Null()
-            Read(orgline,*)PRes.ResName,PRes.LoadType,PRes.TimeAna,PRes.DataType,PRes.DataLoc,PRes.DescComp
+            if(isOldFormat)then
+                nres=nres+1
+                Allocate(PRes)
+                PRes.index=nres
+                PRes.next=>Null()
+                Read(orgline,*)PRes.ResName,PRes.LoadType,PRes.TimeAna,PRes.DataType,PRes.DataLoc,PRes.DescComp
 
-            if(Pres.DataType==1) then
-                PRes.nval = 1
-            elseif(Pres.DataType==2)then
-                PRes.nval = 3
-            elseif(PRes.DataType==3)then
-                PRes.nval = 6
-            endif
+                if(Pres.DataType==1) then
+                    PRes.nval = 1
+                elseif(Pres.DataType==2)then
+                    PRes.nval = 3
+                elseif(PRes.DataType==3)then
+                    PRes.nval = 6
+                endif
 
-            if(PRes.DescComp>0)then
-                Allocate(Pres.CompName(Pres.nval))
-                do icomp = 1, Pres.nval
-                    read(resunit,*)Pres.CompName(icomp)
+                if(PRes.DescComp>0)then
+                    Allocate(Pres.CompName(Pres.nval))
+                    do icomp = 1, Pres.nval
+                        read(resunit,*)Pres.CompName(icomp)
+                    enddo
+                endif
+
+                write(*,*)"ResultName           ",PRes.ResName(1:len_trim(PRes.ResName))
+                write(*,*)"AnalysisName         ",PRes.AnaName(1:len_trim(PRes.AnaName))
+                write(*,*)"TimeAnalysis         ",PRes.TimeAna
+                write(*,*)"ResultType           ",PRes.DataType
+                write(*,*)
+
+                if(associated(ResLast))then
+                    ResLast.next=>PRes
+                    ResLast=>PRes
+                else
+                    ResHead=>PRes
+                    ResLast=>PRes
+                endif
+
+                nullify(PRes.ValHead)
+                nullify(PRes.ValLast)
+                icoor=0
+                do
+                    read(resunit,'(A300)')orgline
+                    read(orgline(1:index(orgline,' ')),'(A20)')text
+                    icoor=icoor+1
+                    allocate(PRes.PVal)
+                    allocate(PRes.PVal.dat(PRes.nval))
+                    read(orgline,*)PRes.PVal.index,PRes.PVal.dat
+                    if(icoor/=PRes.PVal.index)stop 'Res Error!'
+                    PRes.PVal.next=>Null()
+                    if(associated(PRes.ValLast))then
+                        PRes.ValLast.next=>PRes.PVal
+                        PRes.ValLast=>PRes.PVal
+                    else
+                        PRes.ValHead=>PRes.PVal
+                        PRes.ValLast=>PRes.PVal
+                    endif
+                    if(icoor==ncoor)exit
+                enddo
+                allocate(PRes.Val(icoor))
+                PRes.PVal=>PRes.ValHead
+                icoor=0
+                do while(associated(PRes.PVal))
+                    icoor=icoor+1
+                    PRes.Val(icoor)=PRes.PVal
+                    PRes.PVal=>PRes.PVal.next
                 enddo
             endif
-
-            write(*,*)"ResultName           ",PRes.ResName(1:len_trim(PRes.ResName))
-            write(*,*)"AnalysisName         ",PRes.AnaName(1:len_trim(PRes.AnaName))
-            write(*,*)"TimeAnalysis         ",PRes.TimeAna
-            write(*,*)"ResultType           ",PRes.DataType
-            write(*,*)
-
-            if(associated(ResLast))then
-                ResLast.next=>PRes
-                ResLast=>PRes
-            else
-                ResHead=>PRes
-                ResLast=>PRes
-            endif
-
-            nullify(PRes.ValHead)
-            nullify(PRes.ValLast)
-            icoor=0
-            do
-                read(resunit,'(A300)')orgline
-                read(orgline(1:index(orgline,' ')),'(A20)')text
-                icoor=icoor+1
-                allocate(PRes.PVal)
-                allocate(PRes.PVal.dat(PRes.nval))
-                read(orgline,*)PRes.PVal.index,PRes.PVal.dat
-                if(ncoor/=PRes.PVal.index)stop 'Res Error!'
-                PRes.PVal.next=>Null()
-                if(associated(PRes.ValLast))then
-                    PRes.ValLast.next=>PRes.PVal
-                    PRes.ValLast=>PRes.PVal
-                else
-                    PRes.ValHead=>PRes.PVal
-                    PRes.ValLast=>PRes.PVal
-                endif
-                if(icoor==ncoor)exit
-            enddo
-            allocate(PRes.Val(icoor))
-            PRes.PVal=>PRes.ValHead
-            icoor=0
-            do while(associated(PRes.PVal))
-                icoor=icoor+1
-                PRes.Val(icoor)=PRes.PVal
-                PRes.PVal=>PRes.PVal.next
-            enddo
-
 
         end select
     enddo
