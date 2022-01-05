@@ -37,6 +37,7 @@
     subroutine readmsh
     character(150)   ::orgline,text
     integer         ::idxi,idxj,igroup,icoor,ielem,idim
+    type(eleminfo),pointer::GroupElemHead
 
     isMeshGroup = .false.
     isOldFormat = .True.
@@ -92,6 +93,9 @@
                 idxj=len_trim(orgline)
                 read(orgline(idxi:idxj),"(I3)")PGroup.Nnode
             else
+
+                orgline = lowcase(orgline)
+
                 write(PGroup.GroupName,*)ngroup
 
                 idxi=index(orgline,'dimension')+len("dimension")
@@ -176,20 +180,28 @@
                         ElemHead=>PElem
                         ElemLast=>PElem
                     endif
+                    if(ielem==1)then
+                        GroupELemHead=>PElem
+                    endif
                 end select
                 PGroup.Nelem=ielem
             enddo
             !为单元组节点中的单元列表分配内存，然后将单元列表指针指向单元信息地址
-            allocate(PGroup.Elem(ielem))
-            PElem=>ElemHead
-            ielem=0
-            do while(associated(PElem))
-                if(PElem.group .eq. PGroup.index)then
+            if(ielem>0)then
+                allocate(PGroup.Elem(ielem))
+                PElem=>GroupELemHead
+                ielem=0
+                do while(associated(PElem))
+                    !if(PElem.group .eq. PGroup.index)then
+                    !    ielem=ielem+1
+                    !    PGroup.Elem(ielem)=PElem
+                    !endif
                     ielem=ielem+1
                     PGroup.Elem(ielem)=PElem
-                endif
-                PElem=>PElem.next
-            enddo
+
+                    PElem=>PElem.next
+                enddo
+            endif
             print *,"Thera're ",ielem,"elem in this group"
         end select
     enddo
@@ -299,12 +311,18 @@
             idxi=index(orgline,'"')-1
             read(orgline(1:idxi),'(A70)')PRes.CompName(1)
             do icomp=2, PRes.nval
-                idxi=index(orgline,'"')+4
+                idxi=index(orgline,'"')+1
+                idxj=len_trim(orgline)
+                read(orgline(idxi:idxj),'(A150)')orgline
+                idxi=index(orgline,'"')+1
                 idxj=len_trim(orgline)
                 read(orgline(idxi:idxj),'(A150)')orgline
                 idxi=index(orgline,'"')-1
                 read(orgline(1:idxi),'(A70)')PRes.CompName(icomp)
             enddo
+            if(len_trim(orgline)==0)then
+                PRes.nval= PRes.nval-1
+            endif
         case("values")
             nullify(PRes.ValHead)
             nullify(PRes.ValLast)
@@ -347,12 +365,22 @@
                 PRes.next=>Null()
                 Read(orgline,*)PRes.ResName,PRes.LoadType,PRes.TimeAna,PRes.DataType,PRes.DataLoc,PRes.DescComp
 
-                if(Pres.DataType==1) then
-                    PRes.nval = 1
-                elseif(Pres.DataType==2)then
-                    PRes.nval = 3
-                elseif(PRes.DataType==3)then
-                    PRes.nval = 6
+                if(ndim==2)then
+                    if(Pres.DataType==1) then
+                        PRes.nval = 1
+                    elseif(Pres.DataType==2)then
+                        PRes.nval = 2
+                    elseif(PRes.DataType==3)then
+                        PRes.nval = 4
+                    endif
+                elseif(ndim==3)then
+                    if(Pres.DataType==1) then
+                        PRes.nval = 1
+                    elseif(Pres.DataType==2)then
+                        PRes.nval = 3
+                    elseif(PRes.DataType==3)then
+                        PRes.nval = 6
+                    endif
                 endif
 
                 if(PRes.DescComp>0)then
