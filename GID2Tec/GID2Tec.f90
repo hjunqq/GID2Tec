@@ -92,6 +92,9 @@
                 idxj=len_trim(orgline)
                 read(orgline(idxi:idxj),"(I3)")PGroup.Nnode
             else
+
+                orgline = lowcase(orgline)
+
                 write(PGroup.GroupName,*)ngroup
 
                 idxi=index(orgline,'dimension')+len("dimension")
@@ -299,12 +302,18 @@
             idxi=index(orgline,'"')-1
             read(orgline(1:idxi),'(A70)')PRes.CompName(1)
             do icomp=2, PRes.nval
-                idxi=index(orgline,'"')+4
+                idxi=index(orgline,'"')+1
+                idxj=len_trim(orgline)
+                read(orgline(idxi:idxj),'(A150)')orgline
+                idxi=index(orgline,'"')+1
                 idxj=len_trim(orgline)
                 read(orgline(idxi:idxj),'(A150)')orgline
                 idxi=index(orgline,'"')-1
                 read(orgline(1:idxi),'(A70)')PRes.CompName(icomp)
             enddo
+            if(len_trim(orgline)==0)then
+                PRes.nval= PRes.nval-1
+            endif
         case("values")
             nullify(PRes.ValHead)
             nullify(PRes.ValLast)
@@ -347,12 +356,22 @@
                 PRes.next=>Null()
                 Read(orgline,*)PRes.ResName,PRes.LoadType,PRes.TimeAna,PRes.DataType,PRes.DataLoc,PRes.DescComp
 
-                if(Pres.DataType==1) then
-                    PRes.nval = 1
-                elseif(Pres.DataType==2)then
-                    PRes.nval = 3
-                elseif(PRes.DataType==3)then
-                    PRes.nval = 6
+                if(ndim==2)then
+                    if(Pres.DataType==1) then
+                        PRes.nval = 1
+                    elseif(Pres.DataType==2)then
+                        PRes.nval = 2
+                    elseif(PRes.DataType==3)then
+                        PRes.nval = 4
+                    endif
+                elseif(ndim==3)then
+                    if(Pres.DataType==1) then
+                        PRes.nval = 1
+                    elseif(Pres.DataType==2)then
+                        PRes.nval = 3
+                    elseif(PRes.DataType==3)then
+                        PRes.nval = 6
+                    endif
                 endif
 
                 if(PRes.DescComp>0)then
