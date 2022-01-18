@@ -75,6 +75,8 @@
             !为单元组分配内存
             ALLOCATE(PGroup)
             PGroup.index=ngroup
+            PGroup.Ncoor=0
+            PGroup.Nelem = 0
 
             if(.not.isOldFormat)then
                 idxi=index(orgline,'MESH')+len("MESH")+2          !去掉双引号，所以要多加一个字符
@@ -171,7 +173,7 @@
                     allocate(PElem)
                     allocate(PElem.node(PGroup.Nnode))
                     read(orgline,*)PElem.index,PElem.node,PElem.group
-                    if(nelem/=PElem.Index)stop 'Elem Error!'
+                    !if(nelem/=PElem.Index)stop 'Elem Error!'
                     PElem.next=>Null()
                     if(associated(ElemLast))then
                         ElemLast.next=>PElem
@@ -184,8 +186,8 @@
                         GroupELemHead=>PElem
                     endif
                 end select
-                PGroup.Nelem=ielem
             enddo
+            PGroup.Nelem=ielem
             !为单元组节点中的单元列表分配内存，然后将单元列表指针指向单元信息地址
             if(ielem>0)then
                 allocate(PGroup.Elem(ielem))
@@ -338,7 +340,7 @@
                     allocate(PRes.PVal)
                     allocate(PRes.PVal.dat(PRes.nval))
                     read(orgline,*)PRes.PVal.index,PRes.PVal.dat
-                    if(icoor/=PRes.PVal.index)stop 'Res Error!'
+                    !if(icoor/=PRes.PVal.index)stop 'Res Error!'
                     PRes.PVal.next=>Null()
                     if(associated(PRes.ValLast))then
                         PRes.ValLast.next=>PRes.PVal
@@ -414,7 +416,7 @@
                     allocate(PRes.PVal)
                     allocate(PRes.PVal.dat(PRes.nval))
                     read(orgline,*)PRes.PVal.index,PRes.PVal.dat
-                    if(icoor/=PRes.PVal.index)stop 'Res Error!'
+                    !if(icoor/=PRes.PVal.index)stop 'Res Error!'
                     PRes.PVal.next=>Null()
                     if(associated(PRes.ValLast))then
                         PRes.ValLast.next=>PRes.PVal
@@ -672,19 +674,21 @@
                 !ierr = TECDAT142(NumPts,P,IsDouble)
             endif
 
-            if(allocated(NData))then
-                deallocate(NData)
-                allocate(NData(group(igroup).nnode*NumElems))
-            else
-                allocate(NData(group(igroup).nnode*NumElems))
-            endif
-            do ielem=1,group(igroup).nelem
-                do inode=1,group(igroup).nnode
-                    ndata((ielem-1)*group(igroup).nnode+inode)=group(igroup).elem(ielem).node(inode)
+            if(NumElems>0)then
+                if(allocated(NData))then
+                    deallocate(NData)
+                    allocate(NData(group(igroup).nnode*NumElems))
+                else
+                    allocate(NData(group(igroup).nnode*NumElems))
+                endif
+                do ielem=1,group(igroup).nelem
+                    do inode=1,group(igroup).nnode
+                        ndata((ielem-1)*group(igroup).nnode+inode)=group(igroup).elem(ielem).node(inode)
+                    enddo
                 enddo
-            enddo
-            !NData = (/1,3,4,2,3,5,6,4/)
-            ierr = TECNOD142(NData)
+                !NData = (/1,3,4,2,3,5,6,4/)
+                ierr = TECNOD142(NData)
+            endif
             if(ierr/=0)then
                 print *,igroup
             endif
