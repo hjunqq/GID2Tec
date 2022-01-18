@@ -465,9 +465,10 @@
     subroutine writetecb
 
     include 'tecio.f90'
-    integer     ::igroup,icoor,ielem,idim,ires,inode,ival,istep,nvariables
+    integer     ::igroup,icoor,ielem,idim,ires,inode,ival,istep,nvariables,jgroup
     integer     ::StepPtr,ZonePtr
     character(1)::CompName(3)=(/'X','Y','Z'/)
+    character(70)::elemType
     integer i
 
     Title="Good Luck"     !<标题，不能为空
@@ -502,7 +503,7 @@
     !Variables="x,y,p"            !<变量名，不能为空
     FName=fpath(1:len_trim(fpath))//".plt"                  !<文件名
     ScratchDir="."                 !<临时文件目录
-    Debug = 0;                     !<是否输出调试信息，0是不输出，1是输出
+    Debug = 1;                     !<是否输出调试信息，0是不输出，1是输出
     VIsDouble = 0;                 !<精度设置，0是单精度，1是双精度
     FileType  = 0;                 !<文件类型，0是完整，1是网格，2是结果
     FileFormat = 0;                !<文件格式，0是Tecplot binary,1是Tecplot subzone
@@ -526,13 +527,27 @@
 
     do istep = 1, nstep
         StepPtr = (istep-1)*nres/nstep + 1
+        jgroup = 0
         do igroup=1,ngroup
-            ZoneTitle   = Group(igroup).groupname   !!区名称
+            
+            if(jgroup==igroup)cycle
+            
+            if(Group(igroup).nElem<=0)then
+                jgroup = igroup + 1
+            else
+                jgroup = igroup
+            endif
+            
+            ZoneTitle   = Group(jgroup).groupname   !!区名称
             ZoneType    = 5                         !<0=ORDERED，1=FELINESEG，2=FETRIANGLE
             !!3=FEQUADRILATERAL，4=FETETRAHEDRON
             !!5=FEBRICK，6=FEPOLYGON，7=FEPOLYHEDRON
-
-            select case(lowcase(trim(adjustl(Group(igroup).ElemType))))
+            
+            
+            ElemType = lowcase(trim(adjustl(Group(jgroup).ElemType)))
+            
+            
+            select case(ElemType)
             case('linear')
                 ZoneType = 1
             case('triangle')
@@ -545,13 +560,13 @@
                 ZoneType = 5
             end select
             NumPts      = Group(1).ncoor       !节点数
-            NumElems    = Group(igroup).nelem       !单元数
+            NumElems    = Group(jgroup).nelem       !单元数
             NumFaces    = 8                         !多面体单元的面，其他的没有用
             ICellMax    = 0                         !* not used */
             JCellMax    = 0                         !* not used */
             KCellMax    = 0                         !* not used */
             SolTime     = Res(StepPtr).TimeAna                     !瞬态分析要用
-            StrandID    = Group(igroup).Index                         !* StaticZone */
+            StrandID    = Group(jgroup).Index                         !* StaticZone */
             ParentZn    = 0                         !父区域，0表示没有，
             IsBlock     = 1                         !Block模式
             NFConns     = 0                         !接触面数
@@ -560,6 +575,7 @@
             NumConnectedBoundaryFaces = 1           !多边形有用
             TotalNumBoundaryConnections = 1         !多边形有用
             ShrConn     = 0                         !变量共享，0是不共享
+
             if(igroup.gt.1)then
                 if(allocated(ShareVarFromZone))then
                     deallocate(ShareVarFromZone)
@@ -569,6 +585,7 @@
                 endif
                 ShareVarFromZone = ZonePtr
             endif
+            
             ierr = TECZNE142(ZoneTitle,&
                 ZoneType,&
                 NumPts,&
@@ -599,18 +616,6 @@
                 ZonePtr = nzone
             endif
 
-            !X(1) = 0
-            !X(2) = 0
-            !X(3) = 1
-            !X(4) = 1
-            !X(5) = 2
-            !X(6) = 2
-            !Y(1) = 0
-            !Y(2) = 1
-            !Y(3) = 0
-            !Y(4) = 1
-            !Y(5) = 0
-            !Y(6) = 1
             if(allocated(X))then
                 deallocate(X)
                 allocate(X(NumPts))
@@ -635,9 +640,6 @@
             else
                 allocate(P(Numpts))
             endif
-            !do i =1,NumPts
-            !    P(i)=NumPts-i
-            !enddo
             if(ndim==2)then
                 do icoor=1,ncoor
                     x(icoor)=coor(icoor).val(1)
@@ -667,74 +669,29 @@
                         enddo
                         ierr = TECDAT142(NumPts,P,IsDouble)
                     enddo
-                    !do icoor=1,ncoor
-                    !    p(icoor)=res(ires).val(icoor).dat(1)
-                    !enddo
                 enddo
-                !ierr = TECDAT142(NumPts,P,IsDouble)
             endif
 
-            if(NumElems>0)then
-                if(allocated(NData))then
-                    deallocate(NData)
-                    allocate(NData(group(igroup).nnode*NumElems))
-                else
-                    allocate(NData(group(igroup).nnode*NumElems))
-                endif
-                do ielem=1,group(igroup).nelem
-                    do inode=1,group(igroup).nnode
-                        ndata((ielem-1)*group(igroup).nnode+inode)=group(igroup).elem(ielem).node(inode)
-                    enddo
-                enddo
-                !NData = (/1,3,4,2,3,5,6,4/)
-                ierr = TECNOD142(NData)
+            if(allocated(NData))then
+                deallocate(NData)
+                allocate(NData(group(jgroup).nnode*NumElems))
+            else
+                allocate(NData(group(jgroup).nnode*NumElems))
             endif
+            do ielem=1,group(jgroup).nelem
+                do inode=1,group(jgroup).nnode
+                    ndata((ielem-1)*group(jgroup).nnode+inode)=group(jgroup).elem(ielem).node(inode)
+                enddo
+            enddo
+            !NData = (/1,3,4,2,3,5,6,4/)
+            ierr = TECNOD142(NData)
             if(ierr/=0)then
-                print *,igroup
+                print *,jgroup
             endif
 
         enddo
         if(allocated(ShareVarFromZone))deallocate(ShareVarFromZone)
     enddo
-    !allocate(FaceConn(4))
-    !FaceConn = (/2,2,2,1/)
-    !ierr = TECFACE142(FaceConn)
-    !
-    !ZoneTitle   ="I Don't Know ZoneTitle2"
-    !ierr = TECZNE142(ZoneTitle,&
-    !        ZoneType,&
-    !        NumPts,&
-    !        NumElems,&
-    !        NumFaces,&
-    !        ICellMax,&
-    !        JCellMax,&
-    !        KCellMax,&
-    !        SolTime,&
-    !        StrandID,&
-    !        ParentZn,&
-    !        IsBlock,&
-    !        NFConns,&
-    !        FNMode,&
-    !        TotalNumFaceNodes,&
-    !        NumConnectedBoundaryFaces,&
-    !        TotalNumBoundaryConnections, &
-    !        PassiveVarList, &
-    !        ValueLocation,&
-    !        ShareVarFromZone,&
-    !        ShrConn)
-    !
-    !do i =1,NumPts
-    !    x(i)=x(i)+2
-    !    p(i)=2*i
-    !enddo
-    !ierr = TECDAT142(NumPts,X,IsDouble)
-    !ierr = TECDAT142(NumPts,Y,IsDouble)
-    !ierr = TECDAT142(NumPts,P,IsDouble)
-    !
-    !ierr = TECNOD142(NData)
-    !
-    !FaceConn = (/1,4,1,2/)
-    !ierr = TECFACE142(FaceConn)
 
     if(.not.isMeshGroup)then
         ierr = TECEND142()
