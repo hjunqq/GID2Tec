@@ -4,8 +4,6 @@
     use datatype
     implicit none
 
-
-
     narg = iargc()
     if (narg >0) then
         call GETARG(1,arg)
@@ -16,8 +14,6 @@
         read(inpunit,*)text
         read(inpunit,*)fpath
     endif
-
-
 
     mshunit=1
     resunit=2
@@ -114,9 +110,6 @@
 
             endif
 
-
-
-
             write(*,*)"Mesh          ",PGroup.GroupName(1:len_trim(PGroup.GroupName))
             write(*,*)"Dimension     ",PGroup.Dim
             write(*,*)"ElemType      ",PGroup.ElemType(1:len_trim(PGroup.ElemType))
@@ -204,7 +197,7 @@
                     PElem=>PElem.next
                 enddo
             endif
-            print *,"Thera're ",ielem,"elem in this group"
+            print *,"There're ",ielem,"elem in this group"
         end select
     enddo
 
@@ -244,7 +237,7 @@
     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     subroutine readres
     character(300)   ::orgline,text
-    integer          ::idxi,idxj,ires,icomp,icoor,istep
+    integer          ::idxi,idxj,ires,icomp,icoor,istep,idm
     real            ::curtime
     real,allocatable::time(:)
 
@@ -434,7 +427,9 @@
                     icoor=icoor+1
                     PRes.Val(icoor)=PRes.PVal
                     PRes.PVal=>PRes.PVal.next
-                enddo
+				enddo
+				idm=size(PRes.Val(icoor).dat,1)
+                call sortPResVal(icoor,idm)     !for CFDEM parallel result
             endif
 
         end select
@@ -716,4 +711,52 @@
     enddo
     end function
 
+!----------------------------------------------------------------------------
+	subroutine sortPResVal(npoins,ndimn)
+	
+	integer npoins,ipoin,ndimn
+	integer,allocatable::order(:)
+	real,allocatable :: dat(:,:)
+	
+	allocate(order(npoins),dat(ndimn,npoins));order=0 ; dat=0.
+	do ipoin=1,npoins
+	    order(ipoin)=PRes.Val(ipoin).index
+		dat(:,order(ipoin))=PRes.Val(ipoin).dat(:)
+	end do
+    call quicksort(order,1,npoins)
+	ipoin=0
+	do 
+		ipoin=ipoin+1
+		PRes.Val(ipoin).index=order(ipoin)
+		PRes.Val(ipoin).dat(:)=dat(:,order(ipoin))
+		if(ipoin<npoins) PRes.val(ipoin).next=>PRes.val(ipoin+1)
+	    if(ipoin==npoins) exit
+	end do
+	deallocate(order,dat)
+	
+	end subroutine sortPResVal
+!----------------------------------------------------------------------------
+	recursive subroutine quicksort(a, first, last)
+	integer first, last
+	integer i, j
+	integer	a(last), x, t
+
+	x = a( (first+last) / 2 )
+	i = first
+	j = last
+	do
+		do while (a(i) < x)
+			i=i+1
+		end do
+		do while (x < a(j))
+			j=j-1
+		end do
+		if (i >= j) exit
+		t = a(i);  a(i) = a(j);  a(j) = t
+		i=i+1
+		j=j-1
+	end do
+	if (first < i-1) call quicksort(a, first, i-1)
+	if (j+1 < last)  call quicksort(a, j+1, last)
+	end subroutine quicksort
     end program
