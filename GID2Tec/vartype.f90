@@ -42,7 +42,7 @@
     !!@param next 下一个节点
     type ResValinfo
         integer         ::index
-        real,allocatable    ::dat(:)
+        real(8),allocatable    ::dat(:)
         type(ResValinfo),pointer::next
     end type
     !>结果组链表节点
