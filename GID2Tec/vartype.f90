@@ -75,7 +75,7 @@
 
     integer::mshunit,resunit,inpunit
     integer::ngroup,ncoor,nelem,nres,ntres,nstep,ndim,nzone
-    logical::isMeshGroup,isOldFormat
+    logical::isMeshGroup,isOldFormat,isStream,isTecFile
     character(len=128)::arg
     integer::narg
     character(len=128)::fpath,text

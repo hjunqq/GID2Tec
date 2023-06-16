@@ -1,4 +1,4 @@
-    !>÷˜≥Ã–Ú
+    !>‰∏ªÁ®ãÂ∫è
     program GID2Tec
 
     use datatype
@@ -21,14 +21,23 @@
     open(resunit,FILE=fpath(1:len_trim(fpath))//".flavia.res")
 
     isMeshGroup = .TRUE.
+    isTecFile = .FALSE.
+
     nzone = 0
     do while(isMeshGroup)
+        isStream = .TRUE.
         call readmsh
-        call readres
-        call writetecb
+        do while (isStream)
+            call readresstream
+            if(isStream)then
+                call writetecbstream
+                call finalize()
+            endif
+        enddo
     enddo
+    call closetecfile
     contains
-    !>∂¡»°Õ¯∏Ò–≈œ¢
+    !>ËØªÂèñÁΩëÊ†º‰ø°ÊÅØ
     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     subroutine readmsh
     character(150)   ::orgline,text
@@ -41,19 +50,37 @@
     ncoor=0
     nelem=0
     ngroup=0
-    !Ω´◊¯±Í∫Õµ•‘™µƒÕ∑Œ≤Ω⁄µ„÷∏’Î÷√ø’
+    !Â∞ÜÂùêÊ†áÂíåÂçïÂÖÉÁöÑÂ§¥Â∞æËäÇÁÇπÊåáÈíàÁΩÆÁ©∫
     NULLIFY(GroupHead)
     NULLIFY(GroupLast)
     nullify(CoorHead)
     nullify(CoorLast)
     nullify(ElemHead)
     nullify(ElemLast)
+    if(associated(coor))then
+        do icoor = 1, ncoor
+            deallocate(coor(icoor)%val)
+        enddo
+        deallocate(coor)
+    endif
+    if(associated(elem))then
+        do ielem = 1, nelem
+            deallocate(elem(ielem)%node)
+        enddo
+        deallocate(elem)
+    endif
+    if(associated(group))then
+        do igroup = 1, ngroup
+            deallocate(group(igroup)%elem)
+        enddo
+        deallocate(group)
+    endif
     do
-        !∂¡»°“ª–– ˝æ›
+        !ËØªÂèñ‰∏ÄË°åÊï∞ÊçÆ
         read(mshunit,'(A150)',END=100)orgline
         orgline = adjustl(orgline)                            !for old format
         read(orgline(1:index(orgline,' ')),'(A20)')text
-        !»° ˝æ›µƒµ⁄“ª∏ˆµ•¥ 
+        !ÂèñÊï∞ÊçÆÁöÑÁ¨¨‰∏Ä‰∏™ÂçïËØç
         select case(lowcase(trim(text)))
         case('#')
             print *,"Read A Comment"
@@ -66,17 +93,17 @@
             print *,"End Group"
             goto 100
         case('mesh')
-            !ø™ º∂¡»°µ•‘™◊ÈΩ⁄µ„–≈œ¢
+            !ÂºÄÂßãËØªÂèñÂçïÂÖÉÁªÑËäÇÁÇπ‰ø°ÊÅØ
             ngroup=ngroup+1
-            !Œ™µ•‘™◊È∑÷≈‰ƒ⁄¥Ê
+            !‰∏∫ÂçïÂÖÉÁªÑÂàÜÈÖçÂÜÖÂ≠ò
             ALLOCATE(PGroup)
             PGroup.index=ngroup
             PGroup.Ncoor=0
             PGroup.Nelem = 0
 
             if(.not.isOldFormat)then
-                idxi=index(orgline,'MESH')+len("MESH")+2          !»•µÙÀ´“˝∫≈£¨À˘“‘“™∂‡º”“ª∏ˆ◊÷∑˚
-                idxj=index(orgline,'dimension')-1-2                !»•µÙÀ´“˝∫≈£¨–Ë“™∂‡ºı“ª∏ˆ◊÷∑˚
+                idxi=index(orgline,'MESH')+len("MESH")+2          !ÂéªÊéâÂèåÂºïÂè∑ÔºåÊâÄ‰ª•Ë¶ÅÂ§öÂä†‰∏Ä‰∏™Â≠óÁ¨¶
+                idxj=index(orgline,'dimension')-1-2                !ÂéªÊéâÂèåÂºïÂè∑ÔºåÈúÄË¶ÅÂ§öÂáè‰∏Ä‰∏™Â≠óÁ¨¶
                 read(orgline(idxi:idxj),"(A70)")PGroup.GroupName
 
                 idxi=index(orgline,'dimension')+len("dimension")
@@ -115,7 +142,7 @@
             write(*,*)"ElemType      ",PGroup.ElemType(1:len_trim(PGroup.ElemType))
             write(*,*)"Nnode         ",PGroup.Nnode
             write(*,*)
-            !Ω´∂¡»°µΩµƒµ•‘™◊È∑≈µΩ¡¥±ÌµƒΩ·Œ≤
+            !Â∞ÜËØªÂèñÂà∞ÁöÑÂçïÂÖÉÁªÑÊîæÂà∞ÈìæË°®ÁöÑÁªìÂ∞æ
             PGroup.next=>NULL()
             if(ASSOCIATED(GroupLast))then
                 GroupLast.next=>PGroup
@@ -181,7 +208,7 @@
                 end select
             enddo
             PGroup.Nelem=ielem
-            !Œ™µ•‘™◊ÈΩ⁄µ„÷–µƒµ•‘™¡–±Ì∑÷≈‰ƒ⁄¥Ê£¨»ª∫ÛΩ´µ•‘™¡–±Ì÷∏’Î÷∏œÚµ•‘™–≈œ¢µÿ÷∑
+            !‰∏∫ÂçïÂÖÉÁªÑËäÇÁÇπ‰∏≠ÁöÑÂçïÂÖÉÂàóË°®ÂàÜÈÖçÂÜÖÂ≠òÔºåÁÑ∂ÂêéÂ∞ÜÂçïÂÖÉÂàóË°®ÊåáÈíàÊåáÂêëÂçïÂÖÉ‰ø°ÊÅØÂú∞ÂùÄ
             if(ielem>0)then
                 allocate(PGroup.Elem(ielem))
                 PElem=>GroupELemHead
@@ -201,10 +228,10 @@
         end select
     enddo
 
-    !Ω´¡¥±Ì◊™ªª≥…∂ØÃ¨ ˝◊È∏Ò Ω£¨“‘∑Ω±„“‘∫Û∂¡»°
-    !Œ™µ•‘™◊È∑÷≈‰ƒ⁄¥Ê
+    !Â∞ÜÈìæË°®ËΩ¨Êç¢ÊàêÂä®ÊÄÅÊï∞ÁªÑÊ†ºÂºèÔºå‰ª•Êñπ‰æø‰ª•ÂêéËØªÂèñ
+    !‰∏∫ÂçïÂÖÉÁªÑÂàÜÈÖçÂÜÖÂ≠ò
 100 allocate(Group(ngroup))
-    !¥”¡¥±ÌµƒÕ∑ø™ º“¿¥ŒΩ´÷µ∏≥”Ë ˝◊È
+    !‰ªéÈìæË°®ÁöÑÂ§¥ÂºÄÂßã‰æùÊ¨°Â∞ÜÂÄºËµã‰∫àÊï∞ÁªÑ
     PGroup=>GroupHead
     igroup=0
     do while(associated(PGroup))
@@ -232,16 +259,17 @@
     do igroup = 1,ngroup
         ndim = max(ndim,Group(igroup).Dim)
     enddo
-    end subroutine
-    !>∂¡»°Ω·π˚–≈œ¢
+    end subroutine readmsh
+    !>ËØªÂèñÁªìÊûú‰ø°ÊÅØ
     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    subroutine readres
-    character(300)   ::orgline,text
+    subroutine readresstream
+    character(300)   ::orgline,text,firstresname
     integer          ::idxi,idxj,ires,icomp,icoor,istep,idm
     real            ::curtime
     real,allocatable::time(:)
 
     nres = 0
+    firstresname = ""
     nullify(ResHead)
     nullify(ResLast)
     do
@@ -254,13 +282,22 @@
             goto 100
         case("result")
             nres=nres+1
-            Allocate(PRes)
-            PRes.index=nres
-            PRes.next=>Null()
+
             idxi=index(orgline,'"')+1
             idxj=len_trim(orgline)
             read(orgline(idxi:idxj),'(A150)')orgline
             idxi=index(orgline,'"')-1
+
+            if ( firstresname == orgline(1:idxi) ) then
+                nres = nres - 1
+                nstep = 1
+                exit
+            end if
+            if(nres==1) firstresname = orgline(1:idxi)
+
+            Allocate(PRes)
+            PRes.index=nres
+            PRes.next=>Null()
             read(orgline(1:idxi),'(A70)')PRes.ResName
 
             idxi=index(orgline,'"')+3
@@ -352,9 +389,27 @@
                 PRes.Val(icoor)=PRes.PVal
                 PRes.PVal=>PRes.PVal.next
             enddo
+            PRes.PVal=>PRes.ValHead
+            ! ÈáäÊîæÈìæË°®ÂÜÖÂ≠ò
+            do while(associated(PRes.PVal))
+                deallocate(PRes.PVal.dat)
+                PRes.PVal=>PRes.PVal.next
+                deallocate(PRes.ValHead)
+                PRes.ValHead=>PRes.PVal
+            enddo
             case default ! for Old Format
             if(isOldFormat)then
                 nres=nres+1
+
+                if ( nres==1 ) then
+                    read(orgline,*)firstresname
+                end if
+                if ( firstresname(1:5) == orgline(1:5) ) then
+                    nres = nres - 1
+                    nstep = 1
+                    exit
+                end if
+
                 Allocate(PRes)
                 PRes.index=nres
                 PRes.next=>Null()
@@ -427,14 +482,18 @@
                     icoor=icoor+1
                     PRes.Val(icoor)=PRes.PVal
                     PRes.PVal=>PRes.PVal.next
-				enddo
-				idm=size(PRes.Val(icoor).dat,1)
+                enddo
+                idm=size(PRes.Val(icoor).dat,1)
                 call sortPResVal(icoor,idm)     !for CFDEM parallel result
             endif
 
         end select
     enddo
-100 allocate(Res(nres))
+100 if(nres==0)then
+        isStream=.FALSE.
+        return
+    endif
+    allocate(Res(nres))
     allocate(Time(nres))
     PRes=>ResHead
     ires=0
@@ -454,10 +513,13 @@
             endif
         enddo
     endif
-    end subroutine
+    deallocate(time)
+    backspace(resunit)
+
+    end subroutine readresstream
     !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-    !> ‰≥ˆTecplot∂˛Ω¯÷∆∏Ò Ω
-    subroutine writetecb
+    !>ËæìÂá∫Tecplot‰∫åËøõÂà∂Ê†ºÂºè
+    subroutine writetecbstream
 
     include 'tecio.f90'
     integer     ::igroup,icoor,ielem,idim,ires,inode,ival,istep,nvariables,jgroup
@@ -466,7 +528,7 @@
     character(70)::elemType
     integer i
 
-    Title="Good Luck"     !<±ÍÃ‚£¨≤ªƒ‹Œ™ø’
+    Title="Good Luck"     !<Ê†áÈ¢òÔºå‰∏çËÉΩ‰∏∫Á©∫
     ntres=0
     if(ndim==2)then
         Variables = "X,Y"
@@ -495,13 +557,13 @@
             endif
         enddo
     enddo
-    !Variables="x,y,p"            !<±‰¡ø√˚£¨≤ªƒ‹Œ™ø’
-    FName=fpath(1:len_trim(fpath))//".plt"                  !<Œƒº˛√˚
-    ScratchDir="."                 !<¡Ÿ ±Œƒº˛ƒø¬º
-    Debug = 1;                     !< «∑Ò ‰≥ˆµ˜ ‘–≈œ¢£¨0 «≤ª ‰≥ˆ£¨1 « ‰≥ˆ
-    VIsDouble = 0;                 !<æ´∂»…Ë÷√£¨0 «µ•æ´∂»£¨1 «À´æ´∂»
-    FileType  = 0;                 !<Œƒº˛¿‡–Õ£¨0 «ÕÍ’˚£¨1 «Õ¯∏Ò£¨2 «Ω·π˚
-    FileFormat = 0;                !<Œƒº˛∏Ò Ω£¨0 «Tecplot binary,1 «Tecplot subzone
+    !Variables="x,y,p"            !<ÂèòÈáèÂêçÔºå‰∏çËÉΩ‰∏∫Á©∫
+    FName=fpath(1:len_trim(fpath))//".plt"                  !<Êñá‰ª∂Âêç
+    ScratchDir="."                 !<‰∏¥Êó∂Êñá‰ª∂ÁõÆÂΩï
+    Debug = 1;                     !<ÊòØÂê¶ËæìÂá∫Ë∞ÉËØï‰ø°ÊÅØÔºå0ÊòØ‰∏çËæìÂá∫Ôºå1ÊòØËæìÂá∫
+    VIsDouble = 0;                 !<Á≤æÂ∫¶ËÆæÁΩÆÔºå0ÊòØÂçïÁ≤æÂ∫¶Ôºå1ÊòØÂèåÁ≤æÂ∫¶
+    FileType  = 0;                 !<Êñá‰ª∂Á±ªÂûãÔºå0ÊòØÂÆåÊï¥Ôºå1ÊòØÁΩëÊ†ºÔºå2ÊòØÁªìÊûú
+    FileFormat = 0;                !<Êñá‰ª∂Ê†ºÂºèÔºå0ÊòØTecplot binary,1ÊòØTecplot subzone
 
     NULLCHR = CHAR(0)
 
@@ -520,28 +582,29 @@
         endif
     endif
 
+
     do istep = 1, nstep
         StepPtr = (istep-1)*nres/nstep + 1
         jgroup = 0
         do igroup=1,ngroup
-            
+
             if(jgroup==igroup)cycle
-            
+
             if(Group(igroup).nElem<=0)then
                 jgroup = igroup + 1
             else
                 jgroup = igroup
             endif
-            
-            ZoneTitle   = Group(jgroup).groupname   !!«¯√˚≥∆
-            ZoneType    = 5                         !<0=ORDERED£¨1=FELINESEG£¨2=FETRIANGLE
-            !!3=FEQUADRILATERAL£¨4=FETETRAHEDRON
-            !!5=FEBRICK£¨6=FEPOLYGON£¨7=FEPOLYHEDRON
-            
-            
+
+            ZoneTitle   = Group(jgroup).groupname   !!Âå∫ÂêçÁß∞
+            ZoneType    = 5                         !<0=ORDEREDÔºå1=FELINESEGÔºå2=FETRIANGLE
+            !!3=FEQUADRILATERALÔºå4=FETETRAHEDRON
+            !!5=FEBRICKÔºå6=FEPOLYGONÔºå7=FEPOLYHEDRON
+
+
             ElemType = lowcase(trim(adjustl(Group(jgroup).ElemType)))
-            
-            
+
+
             select case(ElemType)
             case('linear')
                 ZoneType = 1
@@ -554,22 +617,22 @@
             case('hexahedra')
                 ZoneType = 5
             end select
-            NumPts      = Group(1).ncoor       !Ω⁄µ„ ˝
-            NumElems    = Group(jgroup).nelem       !µ•‘™ ˝
-            NumFaces    = 8                         !∂‡√ÊÃÂµ•‘™µƒ√Ê£¨∆‰À˚µƒ√ª”–”√
+            NumPts      = Group(1).ncoor       !ËäÇÁÇπÊï∞
+            NumElems    = Group(jgroup).nelem       !ÂçïÂÖÉÊï∞
+            NumFaces    = 8                         !Â§öÈù¢‰ΩìÂçïÂÖÉÁöÑÈù¢ÔºåÂÖ∂‰ªñÁöÑÊ≤°ÊúâÁî®
             ICellMax    = 0                         !* not used */
             JCellMax    = 0                         !* not used */
             KCellMax    = 0                         !* not used */
-            SolTime     = Res(StepPtr).TimeAna                     !À≤Ã¨∑÷Œˆ“™”√
+            SolTime     = Res(StepPtr).TimeAna                     !Áû¨ÊÄÅÂàÜÊûêË¶ÅÁî®
             StrandID    = Group(jgroup).Index                         !* StaticZone */
-            ParentZn    = 0                         !∏∏«¯”Ú£¨0±Ì æ√ª”–£¨
-            IsBlock     = 1                         !Blockƒ£ Ω
-            NFConns     = 0                         !Ω”¥•√Ê ˝
-            FNMode      = 2                         !Ω”¥•¿‡–Õ£¨0 «æ÷≤ø1∂‘1£¨1 «æ÷≤ø1∂‘∂‡£¨2 «»´æ÷1∂‘1£¨3 «»´æ÷1∂‘∂‡
-            TotalNumFaceNodes = 1                   !√ÊΩ⁄µ„ ˝£¨∂‘”⁄∂‡±ﬂ–Œ”–”√
-            NumConnectedBoundaryFaces = 1           !∂‡±ﬂ–Œ”–”√
-            TotalNumBoundaryConnections = 1         !∂‡±ﬂ–Œ”–”√
-            ShrConn     = 0                         !±‰¡øπ≤œÌ£¨0 «≤ªπ≤œÌ
+            ParentZn    = 0                         !Áà∂Âå∫ÂüüÔºå0Ë°®Á§∫Ê≤°ÊúâÔºå
+            IsBlock     = 1                         !BlockÊ®°Âºè
+            NFConns     = 0                         !Êé•Ëß¶Èù¢Êï∞
+            FNMode      = 2                         !Êé•Ëß¶Á±ªÂûãÔºå0ÊòØÂ±ÄÈÉ®1ÂØπ1Ôºå1ÊòØÂ±ÄÈÉ®1ÂØπÂ§öÔºå2ÊòØÂÖ®Â±Ä1ÂØπ1Ôºå3ÊòØÂÖ®Â±Ä1ÂØπÂ§ö
+            TotalNumFaceNodes = 1                   !Èù¢ËäÇÁÇπÊï∞ÔºåÂØπ‰∫éÂ§öËæπÂΩ¢ÊúâÁî®
+            NumConnectedBoundaryFaces = 1           !Â§öËæπÂΩ¢ÊúâÁî®
+            TotalNumBoundaryConnections = 1         !Â§öËæπÂΩ¢ÊúâÁî®
+            ShrConn     = 0                         !ÂèòÈáèÂÖ±‰∫´Ôºå0ÊòØ‰∏çÂÖ±‰∫´
 
             if(igroup.gt.1)then
                 if(allocated(ShareVarFromZone))then
@@ -580,7 +643,7 @@
                 endif
                 ShareVarFromZone = ZonePtr
             endif
-            
+
             ierr = TECZNE142(ZoneTitle,&
                 ZoneType,&
                 NumPts,&
@@ -687,15 +750,30 @@
         enddo
         if(allocated(ShareVarFromZone))deallocate(ShareVarFromZone)
     enddo
+    end subroutine writetecbstream
 
-    if(.not.isMeshGroup)then
-        ierr = TECEND142()
-        if(ierr .eq. -1)then
-            print*,"Closed File Failed!"
-            stop
-        endif
+    subroutine finalize
+    implicit none
+    integer:: ires,icoor,ielem,igroup
+
+    do ires = 1, nres
+        deallocate(res(ires)%val)
+    enddo
+
+    deallocate(Res)
+
+    end subroutine finalize
+
+    subroutine closetecfile
+    implicit none
+    include 'tecio.f90'
+    integer::ierr
+    ierr = TECEND142()
+    if(ierr .eq. -1)then
+        print*,"Closed File Failed!"
+        stop
     endif
-    end subroutine
+    end subroutine closetecfile
 
     function lowcase(s) result(t)
     ! return string 's' in lowercase
@@ -711,52 +789,52 @@
     enddo
     end function
 
-!----------------------------------------------------------------------------
-	subroutine sortPResVal(npoins,ndimn)
-	
-	integer npoins,ipoin,ndimn
-	integer,allocatable::order(:)
-	real,allocatable :: dat(:,:)
-	
-	allocate(order(npoins),dat(ndimn,npoins));order=0 ; dat=0.
-	do ipoin=1,npoins
-	    order(ipoin)=PRes.Val(ipoin).index
-		dat(:,order(ipoin))=PRes.Val(ipoin).dat(:)
-	end do
-    call quicksort(order,1,npoins)
-	ipoin=0
-	do 
-		ipoin=ipoin+1
-		PRes.Val(ipoin).index=order(ipoin)
-		PRes.Val(ipoin).dat(:)=dat(:,order(ipoin))
-		if(ipoin<npoins) PRes.val(ipoin).next=>PRes.val(ipoin+1)
-	    if(ipoin==npoins) exit
-	end do
-	deallocate(order,dat)
-	
-	end subroutine sortPResVal
-!----------------------------------------------------------------------------
-	recursive subroutine quicksort(a, first, last)
-	integer first, last
-	integer i, j
-	integer	a(last), x, t
+    !----------------------------------------------------------------------------
+    subroutine sortPResVal(npoins,ndimn)
 
-	x = a( (first+last) / 2 )
-	i = first
-	j = last
-	do
-		do while (a(i) < x)
-			i=i+1
-		end do
-		do while (x < a(j))
-			j=j-1
-		end do
-		if (i >= j) exit
-		t = a(i);  a(i) = a(j);  a(j) = t
-		i=i+1
-		j=j-1
-	end do
-	if (first < i-1) call quicksort(a, first, i-1)
-	if (j+1 < last)  call quicksort(a, j+1, last)
-	end subroutine quicksort
+    integer npoins,ipoin,ndimn
+    integer,allocatable::order(:)
+    real,allocatable :: dat(:,:)
+
+    allocate(order(npoins),dat(ndimn,npoins));order=0 ; dat=0.
+    do ipoin=1,npoins
+        order(ipoin)=PRes.Val(ipoin).index
+        dat(:,order(ipoin))=PRes.Val(ipoin).dat(:)
+    end do
+    call quicksort(order,1,npoins)
+    ipoin=0
+    do
+        ipoin=ipoin+1
+        PRes.Val(ipoin).index=order(ipoin)
+        PRes.Val(ipoin).dat(:)=dat(:,order(ipoin))
+        if(ipoin<npoins) PRes.val(ipoin).next=>PRes.val(ipoin+1)
+        if(ipoin==npoins) exit
+    end do
+    deallocate(order,dat)
+
+    end subroutine sortPResVal
+    !----------------------------------------------------------------------------
+    recursive subroutine quicksort(a, first, last)
+    integer first, last
+    integer i, j
+    integer	a(last), x, t
+
+    x = a( (first+last) / 2 )
+    i = first
+    j = last
+    do
+        do while (a(i) < x)
+            i=i+1
+        end do
+        do while (x < a(j))
+            j=j-1
+        end do
+        if (i >= j) exit
+        t = a(i);  a(i) = a(j);  a(j) = t
+        i=i+1
+        j=j-1
+    end do
+    if (first < i-1) call quicksort(a, first, i-1)
+    if (j+1 < last)  call quicksort(a, j+1, last)
+    end subroutine quicksort
     end program
