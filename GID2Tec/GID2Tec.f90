@@ -219,7 +219,10 @@
                     !    PGroup.Elem(ielem)=PElem
                     !endif
                     ielem=ielem+1
-                    PGroup.Elem(ielem)=PElem
+                    PGroup%Elem(ielem)%index = PElem%index
+                    PGroup%Elem(ielem)%group = PElem%group
+                    allocate(PGroup%Elem(ielem)%node(PGroup.Nnode))
+                    PGroup%Elem(ielem)%node = PElem%node
 
                     PElem=>PElem.next
                 enddo
@@ -281,19 +284,20 @@
         case("end")
             goto 100
         case("result")
-            nres=nres+1
+            nres = nres + 1
 
             idxi=index(orgline,'"')+1
             idxj=len_trim(orgline)
             read(orgline(idxi:idxj),'(A150)')orgline
             idxi=index(orgline,'"')-1
-
+            
             if ( firstresname == orgline(1:idxi) ) then
                 nres = nres - 1
                 nstep = 1
                 exit
             end if
             if(nres==1) firstresname = orgline(1:idxi)
+
 
             Allocate(PRes)
             PRes.index=nres
@@ -386,7 +390,9 @@
             icoor=0
             do while(associated(PRes.PVal))
                 icoor=icoor+1
-                PRes.Val(icoor)=PRes.PVal
+                PRes%Val(icoor)%index=PRes%PVal%index
+                allocate(PRes%Val(icoor)%dat(PRes.nval))
+                PRes%Val(icoor)%dat=PRes%PVal%dat 
                 PRes.PVal=>PRes.PVal.next
             enddo
             PRes.PVal=>PRes.ValHead
@@ -399,16 +405,16 @@
             enddo
             case default ! for Old Format
             if(isOldFormat)then
-                nres=nres+1
-
-                if ( nres==1 ) then
-                    read(orgline,*)firstresname
-                end if
+                 nres = nres + 1
                 if ( firstresname(1:5) == orgline(1:5) ) then
                     nres = nres - 1
                     nstep = 1
                     exit
                 end if
+                if ( nres==1 ) then
+                    read(orgline,*)firstresname
+                end if
+
 
                 Allocate(PRes)
                 PRes.index=nres
@@ -499,7 +505,27 @@
     ires=0
     do while(associated(PRes))
         ires=ires+1
-        Res(ires)=PRes
+        Res(ires)%ResName=PRes%ResName
+        Res(ires)%AnaName=PRes%AnaName
+        Res(ires)%ResType=PRes%ResType
+        Allocate(Res(ires)%CompName(Pres.nval))
+        Res(ires)%CompName=PRes%CompName
+        Res(ires)%LoadDesc=PRes%LoadDesc
+        Res(ires)%index=PRes%index
+        Res(ires)%nval=PRes%nval
+        Res(ires)%LoadType=PRes%LoadType
+        Res(ires)%DataType=PRes%DataType
+        Res(ires)%DataLoc=PRes%DataLoc
+        Res(ires)%DescComp=PRes%DescComp
+        Res(ires)%GaussPoint=PRes%GaussPoint
+        Res(ires)%TimeAna=PRes%TimeAna
+        allocate(Res(ires)%Val(ncoor))
+        do icoor = 1, ncoor
+            allocate(Res(ires)%Val(icoor)%dat(Pres.nval))
+            Res(ires)%Val(icoor)%dat(:) = Pres%Val(icoor)%dat(:)
+        enddo
+
+
         Time(ires)=Pres.TimeAna
         PRes=>Pres.Next
     enddo

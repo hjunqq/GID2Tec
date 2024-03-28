@@ -6,7 +6,7 @@
     !!@param next 指向下一个坐标节点
     type coorinfo
         integer         ::index
-        real,allocatable::val(:)
+        real,pointer::val(:)
         type(coorinfo),pointer::next
     end type
     !> 单元链表节点
@@ -16,7 +16,7 @@
     !!@param next 指向下一个单元节点
     type eleminfo
         integer         ::index, group
-        integer,allocatable::node(:)
+        integer,pointer::node(:)
         type(eleminfo),pointer::next
     end type
     !> 单元组链表节点
@@ -42,7 +42,7 @@
     !!@param next 下一个节点
     type ResValinfo
         integer         ::index
-        real(8),allocatable    ::dat(:)
+        real(8),pointer    ::dat(:)
         type(ResValinfo),pointer::next
     end type
     !>结果组链表节点
